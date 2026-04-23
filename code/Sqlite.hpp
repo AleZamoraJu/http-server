@@ -85,6 +85,8 @@ namespace argb
 
         };
 
+        using Value = std::variant<bool, int32_t, int64_t, double, std::string>;
+
     private:
         
         Database * database;
@@ -120,13 +122,11 @@ namespace argb
 
     public:
 
-        using SqlValue = std::variant<bool, int32_t, int64_t, double, std::string>;
+        void execute (string_view sql_code, std::span<const Value> arguments);
+        Row  query   (string_view sql_code, std::span<const Value> arguments);
 
-        void execute_all (string_view sql_code, std::span<const SqlValue> args);
-        Row  query_all   (string_view sql_code, std::span<const SqlValue> args);
-
-        template<typename... Args>
-        void execute (string_view sql_code, Args... args)
+        template<typename... ARGUMENTS>
+        void execute (string_view sql_code, ARGUMENTS... arguments)
         {
             Statement * statement = prepare (sql_code);
 
@@ -137,15 +137,15 @@ namespace argb
 
             Row row(statement);
 
-            bind_all (statement, 1, args...);
+            bind_all (statement, 1, arguments...);
 
             while (row.advance ())
             {
             }
         }
 
-        template<typename... Args>
-        Row query (string_view sql_code, Args... args) 
+        template<typename... ARGUMENTS>
+        Row query (string_view sql_code, ARGUMENTS... arguments) 
         {
             Statement * statement = prepare (sql_code);
 
@@ -156,7 +156,7 @@ namespace argb
 
             Row row(statement);
 
-            bind_all (statement, 1, args...);
+            bind_all (statement, 1, arguments...);
 
             return row;
         }
@@ -165,12 +165,12 @@ namespace argb
 
         Sqlite::Statement * prepare (string_view sql_code);
 
-        void bind (Statement * statement, int index, bool               value);
-        void bind (Statement * statement, int index, int32_t            value);
-        void bind (Statement * statement, int index, int64_t            value);
-        void bind (Statement * statement, int index, double             value);
-        void bind (Statement * statement, int index, byte_span          value);
-        void bind (Statement * statement, int index, string_view        value);
+        void bind (Statement * statement, int index, bool                value);
+        void bind (Statement * statement, int index, int32_t             value);
+        void bind (Statement * statement, int index, int64_t             value);
+        void bind (Statement * statement, int index, double              value);
+        void bind (Statement * statement, int index, byte_span           value);
+        void bind (Statement * statement, int index, string_view         value);
         void bind (Statement * statement, int index, const std::string & value) { bind (statement, index, string_view(value)); }
 
         void bind_all (Statement * , int ) { }

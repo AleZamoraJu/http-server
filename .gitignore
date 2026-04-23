@@ -39,3 +39,7 @@ libraries/
 *.exe
 *.out
 *.app
+
+# Binary data
+
+*.bin

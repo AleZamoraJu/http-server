@@ -92,6 +92,34 @@ namespace argb
         return {};
     }
 
+    void LuaServerApplication::route (const std::string & method_string, const std::string & path, lua::Value endpoint)
+    {
+        if (path.empty () || path.front () != '/')
+        {
+            virtual_machine.error ("Parameter 'path' must be a non-empty string starting with '/'.");
+        }
+
+        if (not endpoint.is<lua::Callable> ())
+        {
+            virtual_machine.error ("Parameter 'endpoint' must be a Lua function.");
+        }
+
+        auto method = HttpRequest::Parser::method_from_string (method_string);
+
+        if (method == HttpRequest::Method::UNDEFINED)
+        {
+            virtual_machine.error ("Invalid HTTP method: %s.", method_string.c_str ());
+        }
+
+        auto & endpoints_by_path = endpoints[static_cast<size_t>(method)];
+
+        // Keys ending with '/' act as prefix routes (e.g. "/users/" matches "/users/1").
+        // Keys without a trailing '/' match exactly or as a path-segment prefix.
+        // Both forms are kept as-is so they coexist as distinct entries in the map.
+
+        endpoints_by_path.insert_or_assign (std::string(path), std::move (endpoint));
+    }
+
     void LuaServerApplication::create_lua_bridge ()
     {
         create_bridge_for_server        ();
@@ -107,19 +135,12 @@ namespace argb
         server_bridge.set
         (
             "route",
-            [this](lua::Value method_value, lua::Value path_value, lua::Value endpoint_value)
+            [this] (lua::Value method_value, lua::Value path_value, lua::Value endpoint_value)
             {
-                if (not method_value.is<lua::String>())
-                {
-                    virtual_machine.error ("Parameter 'method' must be a string.");
-                }
+                if (not method_value.is<lua::String> ()) virtual_machine.error ("Parameter 'method' must be a string.");
+                if (not   path_value.is<lua::String> ()) virtual_machine.error ("Parameter 'path' must be a string.");
 
-                if (not path_value.is<lua::String>())
-                {
-                    virtual_machine.error ("Parameter 'path' must be a string.");
-                }
-
-                bridge_server_route (method_value.toString (), path_value.toString (), endpoint_value);
+                route (method_value.toString (), path_value.toString (), endpoint_value);
             }
         );
 
@@ -181,47 +202,27 @@ namespace argb
         virtual_machine.set ("__http_response_metatable", http_response_metatable);
     }
 
-    void LuaServerApplication::bridge_server_route (const std::string & method_string, const std::string & path, lua::Value endpoint)
+    static std::vector<Sqlite::Value> collect_lua_arguments_for_sqlite (lua::Value & arguments)
     {
-        if (path.empty () || path.front () != '/')
+        std::vector<Sqlite::Value> result;
+
+        if (arguments.is<lua::Table> ())
         {
-            virtual_machine.error ("Parameter 'path' must be a non-empty string starting with '/'.");
-        }
-
-        if (not endpoint.is<lua::Callable> ())
-        {
-            virtual_machine.error ("Parameter 'endpoint' must be a Lua function.");
-        }
-
-        auto method = HttpRequest::Parser::method_from_string (method_string);
-
-        if (method == HttpRequest::Method::UNDEFINED)
-        {
-            virtual_machine.error ("Invalid HTTP method: %s.", method_string.c_str ());
-        }
-
-        auto & endpoints_by_path = endpoints[static_cast<size_t>(method)];
-
-        // Keys ending with '/' act as prefix routes (e.g. "/users/" matches "/users/1").
-        // Keys without a trailing '/' match exactly or as a path-segment prefix.
-        // Both forms are kept as-is so they coexist as distinct entries in the map.
-
-        endpoints_by_path.insert_or_assign (std::string(path), std::move(endpoint));
-    }
-
-    static std::vector<Sqlite::SqlValue> collect_sql_args (lua::Value & args)
-    {
-        std::vector<Sqlite::SqlValue> result;
-
-        if (args.is<lua::Table> ())
-        {
-            for (int i = 1; ; ++i)
+            for (int index = 1; ; ++index)
             {
-                lua::Value arg = args[i];
+                lua::Value argument = arguments[index];
 
-                if      (arg.is<lua::Number> ()) result.emplace_back (arg.to<double>     ());
-                else if (arg.is<lua::String> ()) result.emplace_back (arg.to<std::string>());
-                else break;
+                if (argument.is<lua::Boolean> ()) result.emplace_back (argument.to<bool       > ()); else
+                if (argument.is<lua::Number > ()) result.emplace_back (argument.to<double     > ()); else
+                if (argument.is<lua::String > ()) result.emplace_back (argument.to<std::string> ()); else
+                if (argument.is<lua::Nil    > ())
+                {
+                    break;
+                }
+                else
+                {
+                    throw std::invalid_argument("Invalid argument type for SQLite query. Supported types are: number, string (nil terminates the list).");
+                }
             }
         }
 
@@ -235,26 +236,41 @@ namespace argb
         db_table.set
         (
             "execute",
-            [this] (std::string sql, lua::Value args)
+            [this] (std::string sql_code, lua::Value lua_arguments)
             {
-                auto bind_args = collect_sql_args (args);
+                try
+                {
+                    auto sqlite_arguments = collect_lua_arguments_for_sqlite (lua_arguments);
 
-                database ().execute_all (sql, bind_args);
+                    database ().execute (sql_code, std::span<const Sqlite::Value> (sqlite_arguments));
+                }
+                catch (const std::exception & exception)
+                {
+                    virtual_machine.error ("Database error: %s", exception.what ());
+                }
             }
         );
 
         db_table.set
         (
             "query",
-            [this] (std::string sql, lua::Value args) -> lua::Value
+            [this] (std::string sql_code, lua::Value lua_arguments) -> lua::Value
             {
-                auto bind_args = collect_sql_args (args);
+                try
+                {
+                    auto sqlite_arguments = collect_lua_arguments_for_sqlite (lua_arguments);
 
-                return make_sqlite_row_table (database ().query_all (sql, bind_args));
+                    return make_sqlite_row_table (database ().query (sql_code, std::span<const Sqlite::Value> (sqlite_arguments)));
+                }
+                catch (const std::exception & exception)
+                {
+                    virtual_machine.error ("Database error: %s", exception.what ());
+                    return {};
+                }
             }
         );
 
-        virtual_machine.set ("db", db_table);
+        virtual_machine.set ("database", db_table);
     }
 
     lua::Value LuaServerApplication::make_sqlite_row_table (Sqlite::Row row)
@@ -289,8 +305,8 @@ namespace argb
 
         auto row_metatable = virtual_machine.newTable ();
 
-        row_metatable.set ("__index",     row_method_table);
-        row_metatable.set ("__metatable", "protected"     );
+        row_metatable.set ("__index",      row_method_table);
+        row_metatable.set ("__metatable", "protected"      );
 
         row_metatable.set
         (

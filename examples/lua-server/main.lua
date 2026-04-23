@@ -4,7 +4,7 @@
 -- This runs once when the script is loaded.
 -- ---------------------------------------------------------------------------
 
-db.execute([[
+database.execute ([[
     CREATE TABLE IF NOT EXISTS users (
         id    INTEGER PRIMARY KEY AUTOINCREMENT,
         name  TEXT    NOT NULL,
@@ -13,18 +13,18 @@ db.execute([[
     )
 ]])
 
-db.execute("DELETE FROM users")
+database.execute ("DELETE FROM users")
 
-db.execute("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Alice", "alice@example.com", 95.5})
-db.execute("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Bob",   "bob@example.com",   80.0})
-db.execute("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Eve",   "eve@example.com",   73.2})
+database.execute ("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Alice", "alice@example.com", 95.5})
+database.execute ("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Bob",   "bob@example.com",   80.0})
+database.execute ("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Eve",   "eve@example.com",   73.2})
 
 -- ---------------------------------------------------------------------------
 -- GET /hello
 -- Tests: request:get_method(), request:get_header(), response pipeline
 -- ---------------------------------------------------------------------------
 
-server.route("GET", "/hello", function (request, response)
+server.route ("GET", "/hello", function (request, response)
 
     local message = "Hello from the bridge! Method: " .. request:get_method()
                  .. " | Agent: " .. (request:get_header("User-Agent") or "unknown")
@@ -40,14 +40,14 @@ end)
 
 -- ---------------------------------------------------------------------------
 -- GET /users
--- Tests: db.query with no bind args, row:advance(), row:get_integer(),
+-- Tests: database.query with no bind args, row:advance(), row:get_integer(),
 --        row:get_string(), row:get_real()
 -- ---------------------------------------------------------------------------
 
-server.route("GET", "/users", function (request, response)
+server.route ("GET", "/users", function (request, response)
 
     local body = ""
-    local row  = db.query("SELECT id, name, email, score FROM users ORDER BY id")
+    local row  = database.query("SELECT id, name, email, score FROM users ORDER BY id")
 
     while row:advance() do
         local id    = row:get_integer (1)
@@ -69,10 +69,10 @@ end)
 
 -- ---------------------------------------------------------------------------
 -- GET /users/<id>
--- Tests: request:get_path(), db.query with an integer bind arg, empty result set
+-- Tests: request:get_path(), database.query with an integer bind arg, empty result set
 -- ---------------------------------------------------------------------------
 
-server.route("GET", "/users/", function (request, response)
+server.route ("GET", "/users/", function (request, response)
 
     local path = request:get_path ()
     local id   = tonumber (path:match ("/users/(%d+)"))
@@ -88,7 +88,7 @@ server.route("GET", "/users/", function (request, response)
         return
     end
 
-    local row = db.query("SELECT name, email, score FROM users WHERE id = ?", {id})
+    local row = database.query("SELECT name, email, score FROM users WHERE id = ?", {id})
 
     if row:advance() then
         local body = "name="   .. row:get_string (1)
@@ -115,11 +115,11 @@ end)
 
 -- ---------------------------------------------------------------------------
 -- POST /users
--- Tests: request:get_body(), db.execute with multiple bind args,
---        db.query with a string bind arg
+-- Tests: request:get_body(), database.execute with multiple bind args,
+--        database.query with a string bind arg
 -- ---------------------------------------------------------------------------
 
-server.route("POST", "/users", function (request, response)
+server.route ("POST", "/users", function (request, response)
 
     local body  = request:get_body ()
     local name  = body:match ("name=([^&]+)")
@@ -137,9 +137,9 @@ server.route("POST", "/users", function (request, response)
         return
     end
 
-    db.execute("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {name, email, score})
+    database.execute("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {name, email, score})
 
-    local row     = db.query("SELECT id FROM users WHERE email = ?", {email})
+    local row     = database.query("SELECT id FROM users WHERE email = ?", {email})
     local message
 
     if row:advance() then
@@ -159,10 +159,10 @@ end)
 
 -- ---------------------------------------------------------------------------
 -- DELETE /users/<id>
--- Tests: db.execute with an integer bind arg
+-- Tests: database.execute with an integer bind arg
 -- ---------------------------------------------------------------------------
 
-server.route("DELETE", "/users/", function (request, response)
+server.route ("DELETE", "/users/", function (request, response)
 
     local path = request:get_path ()
     local id   = tonumber (path:match ("/users/(%d+)"))
@@ -178,7 +178,7 @@ server.route("DELETE", "/users/", function (request, response)
         return
     end
 
-    db.execute("DELETE FROM users WHERE id = ?", {id})
+    database.execute("DELETE FROM users WHERE id = ?", {id})
 
     local message = "Deleted user " .. id
 

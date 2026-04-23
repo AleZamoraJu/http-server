@@ -101,15 +101,14 @@ namespace argb
 
         public:
 
-            LuaSqliteRowBridge(Sqlite::Row row)
-                : row(std::move(row))
+            LuaSqliteRowBridge(Sqlite::Row row) : row(std::move (row))
             {
             }
 
             bool        advance     ()          { return row.advance ();                   }
-            int         get_integer (int index) { return row.get<int>         (index - 1); }
+            int         get_integer (int index) { return row.get<int        > (index - 1); }
             std::string get_string  (int index) { return row.get<std::string> (index - 1); }
-            double      get_real    (int index) { return row.get<double>      (index - 1); }
+            double      get_real    (int index) { return row.get<double     > (index - 1); }
         };
 
         using DatabaseRowBridges = std::map<LuaSqliteRowBridge *, std::unique_ptr<LuaSqliteRowBridge>>;
@@ -128,8 +127,15 @@ namespace argb
 
         HttpRequestHandler::Ptr create_handler (HttpRequest::Method method, std::string_view path) override;
 
+        void route (const std::string & method_string, const std::string & path_string, lua::Value endpoint);
+
     private:
 
+        /** Provides access to the single instance of the Database object used by each instance of LuaServerApplication.
+          * It doesn't create the Database object until it's actually needed, if ever. The database will be closed and
+          * resources will be released when the LuaServerApplication instance is destroyed.
+          * @return A reference to the Database object used by the application.
+          */
         Database & database ()
         {
             if (not database_ptr) database_ptr = std::make_unique<Database> (base_path / "database.bin");
@@ -144,8 +150,6 @@ namespace argb
         void create_bridge_for_sqlite        ();
 
         lua::Value make_sqlite_row_table (Sqlite::Row row);
-
-        void bridge_server_route (const std::string & method_string, const std::string & path_string, lua::Value endpoint);
 
     private:
 
