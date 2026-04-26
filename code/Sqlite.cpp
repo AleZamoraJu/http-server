@@ -195,6 +195,14 @@ namespace argb
         return statement;
     }
 
+    void Sqlite::bind (Statement * statement, int index, std::nullptr_t )
+    {
+        if (sqlite3_bind_null (statement, index) != SQLITE_OK)
+        {
+            throw_runtime_error ("Error binding a null value: ");
+        }
+    }
+
     void Sqlite::bind (Statement * statement, int index, bool value)
     {
         if (sqlite3_bind_int (statement, index, value ? 1 : 0) != SQLITE_OK)

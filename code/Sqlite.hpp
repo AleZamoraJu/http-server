@@ -85,7 +85,7 @@ namespace argb
 
         };
 
-        using Value = std::variant<bool, int32_t, int64_t, double, std::string>;
+        using Value = std::variant<std::nullptr_t, bool, int32_t, int64_t, double, std::string>;
 
     private:
         
@@ -165,6 +165,7 @@ namespace argb
 
         Sqlite::Statement * prepare (string_view sql_code);
 
+        void bind (Statement * statement, int index, nullptr_t           value);
         void bind (Statement * statement, int index, bool                value);
         void bind (Statement * statement, int index, int32_t             value);
         void bind (Statement * statement, int index, int64_t             value);

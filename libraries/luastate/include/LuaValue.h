@@ -215,6 +215,55 @@ namespace lua {
             lua_settable(_stack->state, _stack->top + _stack->pushed - _stack->grouped);
         }
 
+        template<typename FUNCTION>
+        void for_each_in_table(FUNCTION callback) const {
+            LUASTATE_ASSERT(_stack != nullptr);
+
+            int tableIndex = lua_absindex(_stack->state, _stack->top + _stack->pushed - _stack->grouped);
+
+            LUASTATE_ASSERT(stack::check<Table>(_stack->state, tableIndex));
+
+            lua_pushnil(_stack->state);
+
+            while (lua_next(_stack->state, tableIndex) != 0) {
+                int stackTop = stack::top(_stack->state);
+
+                Value key
+                (
+                    std::make_shared<detail::StackItem>
+                    (
+                        _stack->state,
+                        nullptr,
+                        stackTop - 2,
+                        1,
+                        0
+                    )
+                );
+
+                Value value
+                (
+                    std::make_shared<detail::StackItem>
+                    (
+                        _stack->state,
+                        nullptr,
+                        stackTop - 1,
+                        1,
+                        0
+                    )
+                );
+
+                try {
+                    callback(key, value);
+                }
+                catch (...) {
+                    stack::settop(_stack->state, stackTop - 1);
+                    throw;
+                }
+
+                stack::settop(_stack->state, stackTop - 1);
+            }
+        }
+
         /// Check if queryied value is some type from LuaPrimitives.h file
         ///
         /// @return true if yes false if no

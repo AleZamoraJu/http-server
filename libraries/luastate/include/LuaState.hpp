@@ -71,8 +71,21 @@ namespace lua {
         ///
         /// @pre In Lua C API during function calls lua_State moves stack index to place, where first element is our userdata, and next elements are returned values
         static int metatableCallFunction(lua_State* luaState) {
-            BaseFunctor* functor = *(BaseFunctor **)luaL_checkudata(luaState, 1, "luaL_Functor");;
-            return functor->call(luaState);
+            try
+            {
+                BaseFunctor* functor = *(BaseFunctor **)luaL_checkudata(luaState, 1, "luaL_Functor");;
+                return functor->call(luaState);
+            }
+            catch (const std::exception & exception)
+            {
+                lua_pushstring(luaState, exception.what());
+            }
+            catch (...)
+            {
+                lua_pushliteral(luaState, "Unhandled C++ exception.");
+            }
+
+            return lua_error(luaState);
         }
         
         /// Function for metatable "__gc" field. It deletes captured variables from stored functors.
@@ -227,21 +240,6 @@ namespace lua {
         ///
         /// @return Pointer of Lua state
         lua_State* getState() { return _luaState; }
-
-        /// Raises a Lua error, equivalent to calling error() in Lua.
-        /// This function never returns — it longjmps back to the nearest pcall.
-        ///
-        /// @note Only call this from within a C function invoked by Lua (e.g. a registered functor).
-        ///       Ensure no C++ objects requiring destruction are on the stack at the call site.
-        ///
-        /// @param format   printf-style format string
-        /// @param args     Optional format arguments
-        template <typename... Args>
-        [[noreturn]] void error(const char* format, Args... args)
-        {
-            luaL_error(_luaState, format, args...);
-            LUASTATE_UNREACHABLE();
-        }
 
         /// Get pointer of deallocation queue
         ///

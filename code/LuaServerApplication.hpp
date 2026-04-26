@@ -8,10 +8,12 @@
 #include <HttpRequestHandler.hpp>
 #include <HttpRequestHandlerFactory.hpp>
 #include <HttpResponse.hpp>
+#include <LuaState.hpp>
 #include "LuaTypeAdapter.hpp"
 #include <map>
 #include <memory>
 #include "Sqlite.hpp"
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -35,14 +37,14 @@ namespace argb
         class RequestHandler : public HttpRequestHandler
         {
             LuaServerApplication & server;
-            Endpoint & endpoint;
+            Endpoint               endpoint;
 
         public:
 
             /** Constructs a RequestHandler for the specified LuaServerApplication and endpoint. It initializes the
               * handler with references to the server and the Lua endpoint that it will invoke when processing requests.
               */
-            RequestHandler(LuaServerApplication & server, Endpoint & endpoint)
+            RequestHandler(LuaServerApplication & server, const Endpoint & endpoint)
                 : server  (server  )
                 , endpoint(endpoint)
             {
@@ -153,10 +155,13 @@ namespace argb
 
     private:
 
-        template<class CLASS_TYPE>
+        template<class WRAPPED_CLASS_TYPE>
+        static constexpr const char * native_object_type_name ();
+
+        template<class WRAPPED_CLASS_TYPE, class CLASS_TYPE = WRAPPED_CLASS_TYPE>
         CLASS_TYPE * get_native_object_pointer (lua::Value table);
 
-        template<class CLASS_TYPE, typename RETURN_TYPE, typename ... ARGUMENTS>
+        template<class WRAPPED_CLASS_TYPE, class CLASS_TYPE, typename RETURN_TYPE, typename ... ARGUMENTS>
         void create_method_bridge
         (
             lua::Value & table,
@@ -164,7 +169,7 @@ namespace argb
             RETURN_TYPE (CLASS_TYPE::*method_pointer) (ARGUMENTS...)
         );
 
-        template<class CLASS_TYPE, typename RETURN_TYPE, typename ... ARGUMENTS>
+        template<class WRAPPED_CLASS_TYPE, class CLASS_TYPE, typename RETURN_TYPE, typename ... ARGUMENTS>
         void create_method_bridge
         (
             lua::Value & table,
@@ -174,20 +179,62 @@ namespace argb
 
     };
 
-    template<class CLASS_TYPE>
+    template<>
+    constexpr const char * LuaServerApplication::native_object_type_name<HttpRequest> ()
+    {
+        return "HttpRequest";
+    }
+
+    template<>
+    constexpr const char * LuaServerApplication::native_object_type_name<LuaServerApplication::LuaHttpResponseSerializerBridge> ()
+    {
+        return "HttpResponseSerializer";
+    }
+
+    template<>
+    constexpr const char * LuaServerApplication::native_object_type_name<LuaServerApplication::LuaSqliteRowBridge> ()
+    {
+        return "SqliteRow";
+    }
+
+    template<class WRAPPED_CLASS_TYPE, class CLASS_TYPE>
     CLASS_TYPE * LuaServerApplication::get_native_object_pointer (lua::Value table)
     {
-        auto pointer = table["__native_object_pointer"].to<lua::Pointer> ();
+        if (not table.is<lua::Table> ())
+        {
+            throw std::invalid_argument("Expected a native object table.");
+        }
+
+        auto type = table["__native_object_type"];
+
+        if (not type.is<lua::String> ())
+        {
+            throw std::invalid_argument("Invalid native object type.");
+        }
+
+        if (type.toString () != native_object_type_name<WRAPPED_CLASS_TYPE> ())
+        {
+            throw std::invalid_argument("Invalid native object type.");
+        }
+
+        auto pointer_value = table["__native_object_pointer"];
+
+        if (not pointer_value.is<lua::Pointer> ())
+        {
+            throw std::invalid_argument("Invalid native object pointer.");
+        }
+
+        auto pointer = pointer_value.to<lua::Pointer> ();
 
         if (pointer == nullptr)
         {
-            virtual_machine.error ("Invalid native_object.");
+            throw std::invalid_argument("Invalid native object.");
         }
 
         return static_cast<CLASS_TYPE *>(pointer);
     }
 
-    template<class CLASS_TYPE, typename RETURN_TYPE, typename ... ARGUMENTS>
+    template<class WRAPPED_CLASS_TYPE, class CLASS_TYPE, typename RETURN_TYPE, typename ... ARGUMENTS>
     void LuaServerApplication::create_method_bridge
     (
         lua::Value & table,
@@ -200,7 +247,7 @@ namespace argb
             method_name,
             [this, method_pointer] (lua::Value self, typename LuaTypeAdapter<ARGUMENTS>::LuaType ... arguments)
             {
-                auto * object = get_native_object_pointer<CLASS_TYPE> (self);
+                auto * object = get_native_object_pointer<WRAPPED_CLASS_TYPE, CLASS_TYPE> (self);
 
                 if constexpr (std::is_void_v<RETURN_TYPE>)
                 {
@@ -217,7 +264,7 @@ namespace argb
         );
     }
 
-    template<class CLASS_TYPE, typename RETURN_TYPE, typename ... ARGUMENTS>
+    template<class WRAPPED_CLASS_TYPE, class CLASS_TYPE, typename RETURN_TYPE, typename ... ARGUMENTS>
     void LuaServerApplication::create_method_bridge
     (
         lua::Value & table,
@@ -230,7 +277,7 @@ namespace argb
             method_name,
             [this, method_pointer] (lua::Value self, typename LuaTypeAdapter<ARGUMENTS>::LuaType ... arguments)
             {
-                auto * object = get_native_object_pointer<CLASS_TYPE> (self);
+                auto * object = get_native_object_pointer<WRAPPED_CLASS_TYPE, CLASS_TYPE> (self);
 
                 if constexpr (std::is_void_v<RETURN_TYPE>)
                 {
