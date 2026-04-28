@@ -114,7 +114,7 @@ namespace argb
 
             endpoint.unref ().call (request_table, response_table);
 
-            return true;
+            return true; //change for is dead
         }
         catch (const lua::RuntimeError & error)
         {
