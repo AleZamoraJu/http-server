@@ -54,7 +54,7 @@ namespace argb
             }
         }
 
-        return true;
+        return true; // Is_Dead, not true directly.
     }
 
     bool StaticFileServer::StaticFileRequestHandler::send_response (HttpResponse & response)
