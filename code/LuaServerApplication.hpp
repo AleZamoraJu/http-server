@@ -34,12 +34,12 @@ namespace argb
           * manages the state of the request processing, including invoking the appropriate Lua function for the
           * requested endpoint and generating appropriate HTTP responses based on the outcome of these invocations.
           */
+
+    public:
         class RequestHandler : public HttpRequestHandler
         {
             LuaServerApplication & server;
             Endpoint               endpoint;
-
-        public:
 
             /** Constructs a RequestHandler for the specified LuaServerApplication and endpoint. It initializes the
               * handler with references to the server and the Lua endpoint that it will invoke when processing requests.

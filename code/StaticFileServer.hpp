@@ -23,6 +23,8 @@ namespace argb
     class StaticFileServer : public HttpRequestHandlerFactory
     {
 
+    public:
+
         /** This class implements the logic for handling HTTP requests that correspond to static files. It manages the
           * state of the request processing, including checking for file existence, reading the file content, and generating
           * appropriate HTTP responses based on the outcome of these operations.
@@ -40,8 +42,6 @@ namespace argb
 
             std::filesystem::path file_path;
             std::ifstream         reader;
-
-        public:
 
             /** Constructs a StaticFileRequestHandler for the specified file path. It checks if the file exists and is a
               * regular file, opening it for reading if it is valid. The initial state of the handler is determined based
