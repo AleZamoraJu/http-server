@@ -9,7 +9,7 @@
 namespace argb
 {
 
-    StaticFileServer::StaticFileRequestHandler::StaticFileRequestHandler(std::string_view file_path_string)
+    StaticFileServer::RequestHandler::RequestHandler(std::string_view file_path_string)
         : file_path(file_path_string)
     {
         if (not std::filesystem::exists (file_path) || not std::filesystem::is_regular_file (file_path))
@@ -24,7 +24,7 @@ namespace argb
         }
     }
 
-    bool StaticFileServer::StaticFileRequestHandler::process (const HttpRequest & request, HttpResponse & response)
+    bool StaticFileServer::RequestHandler::process (const HttpRequest & request, HttpResponse & response)
     {
         switch (state)
         {
@@ -57,7 +57,7 @@ namespace argb
         return true;
     }
 
-    bool StaticFileServer::StaticFileRequestHandler::send_response (HttpResponse & response)
+    bool StaticFileServer::RequestHandler::send_response (HttpResponse & response)
     {
         // Aquí se podría implementar la lógica de lectura incremental del archivo y escritura en el cuerpo de la respuesta.
         // Por simplicidad, por el momento se lee todo el archivo de una vez.
@@ -115,7 +115,7 @@ namespace argb
 
                 if (base_end == canonical_base.end ())
                 {
-                    return { std::make_unique<StaticFileRequestHandler> (full_path.string ()) };
+                    return { std::make_unique<RequestHandler> (full_path.string ()) };
                 }
             }
         }
