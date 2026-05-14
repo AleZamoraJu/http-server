@@ -176,7 +176,7 @@ namespace argb
 
                 if (path.starts_with (key) && (path.length () == key.length () || path[key.length ()] == '/' || key.back () == '/'))
                 {
-                    return { std::make_unique<RequestHandler> (*this, iterator->second/*aqui hay que pasar una corrutina*/)};
+                    return { std::make_unique<RequestHandler> (*this, iterator->second) };
                 }
             }
         }

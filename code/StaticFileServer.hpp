@@ -27,7 +27,6 @@ namespace argb
           * state of the request processing, including checking for file existence, reading the file content, and generating
           * appropriate HTTP responses based on the outcome of these operations.
           */
-    public:
         class StaticFileRequestHandler : public HttpRequestHandler
         {
             enum
