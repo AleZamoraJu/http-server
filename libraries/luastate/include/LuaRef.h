@@ -13,6 +13,8 @@ namespace lua {
     /// Reference to Lua value. Can be created from any lua::Value
     class Ref
     {
+        friend class Coroutine;
+
         /// Pointer of Lua state
         lua_State* _luaState;
         detail::DeallocQueue* _deallocQueue;
