@@ -1,3 +1,4 @@
+
 /// @copyright Copyright (c) 2026 Ángel, All rights reserved.
 /// angel.rodriguez@udit.es
 
@@ -12,6 +13,13 @@
 
 namespace argb
 {
+
+    /// LuaTypeAdapter is a template struct that provides a way to adapt C++ types to and from Lua types.
+    /// It defines two static member functions, adapt_from_lua and adapt_for_lua, which are responsible for converting
+    /// between the C++ type and the corresponding Lua type.
+    /// The struct is specialized for certain types, such as std::string and std::string_view, to provide specific
+    /// adaptations for those types when interacting with Lua. This allows for seamless integration of C++ code with
+    /// Lua scripts by handling the necessary type conversions automatically.
 
     template<typename TYPE>
     struct LuaTypeAdapter

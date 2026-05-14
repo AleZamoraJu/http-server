@@ -9,6 +9,7 @@
 namespace lua {
 
     class State;  // Full definition is available when included from LuaState.hpp
+    class Ref;    // Full definition is available when included from LuaState.hpp
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     /// Encapsulates a Lua coroutine thread (lua_newthread) and its complete lifecycle.
@@ -69,6 +70,52 @@ namespace lua {
                 _refKey    = LUA_NOREF;
                 _status    = Status::Error;
                 _lastError = std::string("global '") + functionName + "' is not a function";
+                return;
+            }
+            lua_xmove(_mainState, _thread, 1);
+        }
+
+        /// Constructs the coroutine for the indicated referenced Lua function.
+        ///
+        /// @param state        The owning lua::State of the interpreter
+        /// @param functionRef  Reference to the Lua function that will be executed as a coroutine
+        Coroutine(lua::State& state, const lua::Ref& functionRef)
+            : _mainState(state.getState())
+            , _thread(nullptr)
+            , _refKey(LUA_NOREF)
+            , _status(Status::NotStarted)
+            , _deallocQueue(state.getDeallocQueue())
+        {
+            if (!functionRef.isInitialized())
+            {
+                _status    = Status::Error;
+                _lastError = "functionRef is not initialized";
+                return;
+            }
+
+            if (_mainState != functionRef._luaState)
+            {
+                _status    = Status::Error;
+                _lastError = "functionRef belongs to a different Lua state";
+                return;
+            }
+
+            // Creates the thread; lua_newthread pushes it to the stack of the main state
+            _thread = lua_newthread(_mainState);
+
+            // Anchors the thread in the registry to prevent the GC from collecting it (removes it from the stack)
+            _refKey = luaL_ref(_mainState, LUA_REGISTRYINDEX);
+
+            // Pushes the referenced function to the main state stack before moving it to the coroutine thread stack
+            lua_rawgeti(_mainState, LUA_REGISTRYINDEX, functionRef._refKey);
+            if (!lua_isfunction(_mainState, -1))
+            {
+                lua_pop(_mainState, 1);
+                luaL_unref(_mainState, LUA_REGISTRYINDEX, _refKey);
+                _thread    = nullptr;
+                _refKey    = LUA_NOREF;
+                _status    = Status::Error;
+                _lastError = "referenced value is not a function";
                 return;
             }
             lua_xmove(_mainState, _thread, 1);

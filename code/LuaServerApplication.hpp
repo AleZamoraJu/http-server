@@ -1,3 +1,4 @@
+
 /// @copyright Copyright (c) 2026 Ángel, All rights reserved.
 /// angel.rodriguez@udit.es
 
@@ -20,6 +21,12 @@
 namespace argb
 {
 
+    /** This is responsible for managing the Lua virtual machine, handling HTTP requests by routing them to Lua-defined
+      * endpoints, and providing a bridge between Lua and C++ for database access and HTTP response generation.
+      * It implements the HttpRequestHandlerFactory interface to create request handlers based on the registered Lua
+      * endpoints, and it maintains the state of the application, including the Lua virtual machine, database connection,
+      * and endpoint mappings.
+      */
     class LuaServerApplication : public HttpRequestHandlerFactory
     {
 
@@ -65,6 +72,10 @@ namespace argb
 
         };
 
+        /** This class serves as a bridge between Lua and C++ for generating HTTP responses. It provides methods that
+          * can be called from Lua to manipulate the HTTP response, such as setting the status code, adding headers,
+          * and writing the response body.
+          */
         class LuaHttpResponseSerializerBridge
         {
             HttpResponse::Serializer * serializer;
@@ -97,6 +108,9 @@ namespace argb
             }
         };
 
+        /** This class serves as a bridge between Lua and C++ for accessing SQLite database rows. It provides methods
+          * that can be called from Lua to iterate over rows and retrieve column values by index.
+          */
         class LuaSqliteRowBridge
         {
             Sqlite::Row row;
@@ -125,10 +139,21 @@ namespace argb
 
     public:
 
+        /** Constructs a LuaServerApplication instance by loading the specified Lua script and initializing the Lua
+          * virtual machine.
+          */
         LuaServerApplication(const std::string_view & script_path_string);
 
+        /** Creates an HTTP request handler for the specified HTTP method and request path by looking up the corresponding
+          * Lua endpoint if it exists. If a matching endpoint is found, a RequestHandler instance is created and returned
+          * to handle the request. Otherwise, a null handler is returned, indicating that no handler is available for the
+          * requested method and path.
+          */
         HttpRequestHandler::Ptr create_handler (HttpRequest::Method method, std::string_view path) override;
 
+        /** Registers a Lua endpoint for the specified HTTP method and request path. The endpoint is represented by a Lua
+          * function that will be invoked when a matching request is received.
+          */
         void route (const std::string & method_string, const std::string & path_string, lua::Value endpoint);
 
     private:
