@@ -292,6 +292,10 @@ namespace lua {
             assert(_stack->pushed > 0);
             return _stack->top + 1;
         }
+
+        lua_State* getLuaState() const {
+            return _stack ? _stack->state : nullptr;
+        }
         
         //////////////////////////////////////////////////////////////////////////////////////////////
         // Conventional conversion functions
@@ -556,7 +560,14 @@ namespace lua {
             if (!value.hasStack()) {
                 lua_pushnil(luaState);
             } else {
-                lua_pushvalue(luaState, value.getStackIndex());
+                lua_State* valueState = value.getLuaState();
+                lua_pushvalue(valueState, value.getStackIndex());
+
+                if (valueState == luaState) {
+                    return 1;
+                }
+
+                lua_xmove(valueState, luaState, 1);
             }
             return 1;
         }
