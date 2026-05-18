@@ -1,9 +1,6 @@
-
 -- ---------------------------------------------------------------------------
--- Setup: create and seed the test table if it does not exist yet.
--- This runs once when the script is loaded.
+-- Setup: Se ejecuta de un tirón al cargar (SIN YIELDS AQUÍ)
 -- ---------------------------------------------------------------------------
-
 database.execute ([[
     CREATE TABLE IF NOT EXISTS users (
         id    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,18 +11,14 @@ database.execute ([[
 ]])
 
 database.execute ("DELETE FROM users")
-
 database.execute ("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Alice", "alice@example.com", 95.5})
 database.execute ("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Bob",   "bob@example.com",   80.0})
 database.execute ("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Eve",   "eve@example.com",   73.2})
 
 -- ---------------------------------------------------------------------------
 -- GET /hello
--- Tests: request:get_method(), request:get_header(), response pipeline
 -- ---------------------------------------------------------------------------
-
 server.route ("GET", "/hello", function (request, response)
-
     local message = "Hello from the bridge! Method: " .. request:get_method()
                  .. " | Agent: " .. (request:get_header("User-Agent") or "unknown")
 
@@ -35,26 +28,23 @@ server.route ("GET", "/hello", function (request, response)
     response:header     ("Connection",     "close")
     response:end_header ()
     response:body       (message)
-
+    
+    coroutine.yield() -- CORRECCIÓN: Notifica a C++ que la respuesta está lista
 end)
 
 -- ---------------------------------------------------------------------------
 -- GET /users
--- Tests: database.query with no bind args, row:advance(), row:get_integer(),
---        row:get_string(), row:get_real()
 -- ---------------------------------------------------------------------------
-
 server.route ("GET", "/users", function (request, response)
-
     local body = ""
     local row  = database.query("SELECT id, name, email, score FROM users ORDER BY id")
 
+    -- Procesamos todas las filas seguidas para armar el string
     while row:advance() do
         local id    = row:get_integer (1)
         local name  = row:get_string  (2)
         local email = row:get_string  (3)
         local score = row:get_real    (4)
-
         body = body .. id .. " | " .. name .. " | " .. email .. " | " .. score .. "\n"
     end
 
@@ -64,16 +54,14 @@ server.route ("GET", "/users", function (request, response)
     response:header     ("Connection",     "close")
     response:end_header ()
     response:body       (body)
-
+    
+    coroutine.yield() -- CORRECCIÓN: Rendimos el control al terminar de armar la respuesta
 end)
 
 -- ---------------------------------------------------------------------------
 -- GET /users/<id>
--- Tests: request:get_path(), database.query with an integer bind arg, empty result set
 -- ---------------------------------------------------------------------------
-
 server.route ("GET", "/users/", function (request, response)
-
     local path = request:get_path ()
     local id   = tonumber (path:match ("/users/(%d+)"))
 
@@ -85,6 +73,7 @@ server.route ("GET", "/users/", function (request, response)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (message)
+        coroutine.yield() -- CORRECCIÓN: Faltaba ceder tras un error 400
         return
     end
 
@@ -101,6 +90,7 @@ server.route ("GET", "/users/", function (request, response)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (body)
+        coroutine.yield() -- CORRECCIÓN: Asegura el envío del 200 OK
     else
         local message = "User " .. id .. " not found"
         response:status     (404)
@@ -109,18 +99,14 @@ server.route ("GET", "/users/", function (request, response)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (message)
+        coroutine.yield() -- CORRECCIÓN: Asegura el envío del 404 Not Found
     end
-
 end)
 
 -- ---------------------------------------------------------------------------
 -- POST /users
--- Tests: request:get_body(), database.execute with multiple bind args,
---        database.query with a string bind arg
 -- ---------------------------------------------------------------------------
-
 server.route ("POST", "/users", function (request, response)
-
     local body  = request:get_body ()
     local name  = body:match ("name=([^&]+)")
     local email = body:match ("email=([^&]+)")
@@ -134,6 +120,7 @@ server.route ("POST", "/users", function (request, response)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (message)
+        coroutine.yield() -- CORRECCIÓN: Faltaba ceder tras error de parseo
         return
     end
 
@@ -154,16 +141,14 @@ server.route ("POST", "/users", function (request, response)
     response:header     ("Connection",     "close")
     response:end_header ()
     response:body       (message)
-
+    
+    coroutine.yield() -- CORRECCIÓN: Faltaba ceder al final del proceso exitoso
 end)
 
 -- ---------------------------------------------------------------------------
 -- DELETE /users/<id>
--- Tests: database.execute with an integer bind arg
 -- ---------------------------------------------------------------------------
-
 server.route ("DELETE", "/users/", function (request, response)
-
     local path = request:get_path ()
     local id   = tonumber (path:match ("/users/(%d+)"))
 
@@ -175,6 +160,7 @@ server.route ("DELETE", "/users/", function (request, response)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (message)
+        coroutine.yield() -- CORRECCIÓN: Faltaba ceder en este return prematuro
         return
     end
 
@@ -188,6 +174,6 @@ server.route ("DELETE", "/users/", function (request, response)
     response:header     ("Connection",     "close")
     response:end_header ()
     response:body       (message)
-
+    
+    coroutine.yield() -- CORRECCIÓN: Faltaba ceder tras borrar con éxito
 end)
-

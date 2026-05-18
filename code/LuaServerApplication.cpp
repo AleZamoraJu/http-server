@@ -87,7 +87,7 @@ namespace argb
     // for example by making the tables invalid after the request is processed or by using a different mechanism.
     bool LuaServerApplication::RequestHandler::process (const HttpRequest & request, HttpResponse & response)
     {
-        try
+        if(not endpoint.isError())
         {
             HttpResponse::Serializer        response_serializer(response);
             LuaHttpResponseSerializerBridge response_bridge    (response_serializer);
@@ -114,24 +114,16 @@ namespace argb
 
             endpoint.resume(request_table, response_table);
 
-            return true;
+            return endpoint.isDead();
         }
-        catch (const lua::RuntimeError & error)
-        {
-            std::cout << "Lua runtime error: " << error.what () << std::endl;
-        }
-        catch (const std::exception & exception)
-        {
-            std::cout << "Standard exception: " << exception.what () << std::endl;
-        }
-        catch (...)
-        {
-            std::cout << "Unknown exception was caught at LuaServerApplication::RequestHandler::process()." << std::endl;
+       else
+       {
+           send_plain_text_response(response, 500, "Internal Server Error");
+
+           return true;
         }
 
-        send_plain_text_response (response, 500, "Internal Server Error");
-
-        return true;
+       
     }
 
     LuaServerApplication::LuaServerApplication(const std::string_view & script_path_string)
@@ -176,7 +168,7 @@ namespace argb
 
                 if (path.starts_with (key) && (path.length () == key.length () || path[key.length ()] == '/' || key.back () == '/'))
                 {
-                    return { std::make_unique<RequestHandler> (*this, virtual_machine, std::string(path).c_str()) };
+                    return { std::make_unique<RequestHandler> (*this, virtual_machine, iterator->second) };
                 }
             }
         }

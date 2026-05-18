@@ -52,8 +52,8 @@ namespace argb
             /** Constructs a RequestHandler for the specified LuaServerApplication and endpoint. It initializes the
               * handler with references to the server and the Lua endpoint that it will invoke when processing requests.
               */
-            RequestHandler(LuaServerApplication& server, lua::State& state, const char* name)
-                : server(server), endpoint(state, name)
+            RequestHandler(LuaServerApplication& server, lua::State& state, const lua::Ref& ref)
+                : server(server), endpoint(state, ref)
             {
             }
 
