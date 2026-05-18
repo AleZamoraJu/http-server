@@ -29,7 +29,6 @@ namespace argb
       */
     class LuaServerApplication : public HttpRequestHandlerFactory
     {
-
         using VirtualMachine           = lua::State;
         using Database                 = Sqlite;
         using DatabasePtr              = std::unique_ptr<Database>;
@@ -41,6 +40,7 @@ namespace argb
           * manages the state of the request processing, including invoking the appropriate Lua function for the
           * requested endpoint and generating appropriate HTTP responses based on the outcome of these invocations.
           */
+    public:
         class RequestHandler : public HttpRequestHandler
         {
             LuaServerApplication & server;
