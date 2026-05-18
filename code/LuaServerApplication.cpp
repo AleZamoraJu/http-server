@@ -112,7 +112,7 @@ namespace argb
                 server.virtual_machine["__http_response_metatable"]
             );
 
-            endpoint.unref ().call (request_table, response_table);
+            endpoint.resume(request_table, response_table);
 
             return true;
         }
@@ -176,7 +176,7 @@ namespace argb
 
                 if (path.starts_with (key) && (path.length () == key.length () || path[key.length ()] == '/' || key.back () == '/'))
                 {
-                    return { std::make_unique<RequestHandler> (*this, iterator->second) };
+                    return { std::make_unique<RequestHandler> (*this, virtual_machine, std::string(path).c_str()) };
                 }
             }
         }

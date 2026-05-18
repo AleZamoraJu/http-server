@@ -33,14 +33,15 @@ namespace argb
         using VirtualMachine           = lua::State;
         using Database                 = Sqlite;
         using DatabasePtr              = std::unique_ptr<Database>;
-        using Endpoint                 = lua::Ref;
-        using EndpointsByPath          = std::map<std::string, Endpoint, std::less<>>;
+        using Endpoint                 = lua::Coroutine;
+        using EndpointsByPath          = std::map<std::string, lua::Ref, std::less<>>;
         using EndpointsByMethodAndPath = std::array<EndpointsByPath, static_cast<size_t>(HttpRequest::Method::COUNT)>;
 
         /** This class implements the logic for handling HTTP requests that are routed to Lua-defined endpoints. It
           * manages the state of the request processing, including invoking the appropriate Lua function for the
           * requested endpoint and generating appropriate HTTP responses based on the outcome of these invocations.
           */
+    public:
         class RequestHandler : public HttpRequestHandler
         {
             LuaServerApplication & server;
@@ -51,9 +52,8 @@ namespace argb
             /** Constructs a RequestHandler for the specified LuaServerApplication and endpoint. It initializes the
               * handler with references to the server and the Lua endpoint that it will invoke when processing requests.
               */
-            RequestHandler(LuaServerApplication & server, const Endpoint & endpoint)
-                : server  (server  )
-                , endpoint(endpoint)
+            RequestHandler(LuaServerApplication& server, lua::State& state, const char* name)
+                : server(server), endpoint(state, name)
             {
             }
 
