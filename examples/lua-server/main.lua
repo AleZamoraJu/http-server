@@ -16,7 +16,7 @@ database.execute ("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"B
 database.execute ("INSERT INTO users (name, email, score) VALUES (?, ?, ?)", {"Eve",   "eve@example.com",   73.2})
 
 -- ---------------------------------------------------------------------------
--- GET /hello
+-- GET /hello (msg "hello").
 -- ---------------------------------------------------------------------------
 server.route ("GET", "/hello", function (request, response)
     local message = "Hello from the bridge! Method: " .. request:get_method()
@@ -29,15 +29,17 @@ server.route ("GET", "/hello", function (request, response)
     response:end_header ()
     response:body       (message)
     
-    coroutine.yield() -- CORRECCIÓN: Notifica a C++ que la respuesta está lista
+    coroutine.yield() -- CORRECCIÓN: Notifica a C++ que la respuesta está lista ???
 end)
 
 -- ---------------------------------------------------------------------------
--- GET /users
+-- GET /users (show users)
 -- ---------------------------------------------------------------------------
 server.route ("GET", "/users", function (request, response)
     local body = ""
     local row  = database.query("SELECT id, name, email, score FROM users ORDER BY id")
+    coroutine.yield()
+
 
     -- Procesamos todas las filas seguidas para armar el string
     while row:advance() do
@@ -46,6 +48,7 @@ server.route ("GET", "/users", function (request, response)
         local email = row:get_string  (3)
         local score = row:get_real    (4)
         body = body .. id .. " | " .. name .. " | " .. email .. " | " .. score .. "\n"
+        coroutine.yield()
     end
 
     response:status     (200)
@@ -59,7 +62,7 @@ server.route ("GET", "/users", function (request, response)
 end)
 
 -- ---------------------------------------------------------------------------
--- GET /users/<id>
+-- GET /users/<id> 
 -- ---------------------------------------------------------------------------
 server.route ("GET", "/users/", function (request, response)
     local path = request:get_path ()

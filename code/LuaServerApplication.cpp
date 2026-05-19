@@ -87,43 +87,39 @@ namespace argb
     // for example by making the tables invalid after the request is processed or by using a different mechanism.
     bool LuaServerApplication::RequestHandler::process (const HttpRequest & request, HttpResponse & response)
     {
-        if(not endpoint.isError())
+        HttpResponse::Serializer        response_serializer(response);
+        LuaHttpResponseSerializerBridge response_bridge(response_serializer);
+
+        auto  request_table = server.virtual_machine.newTable();
+        auto response_table = server.virtual_machine.newTable();
+
+        request_table.set("__native_object_type", native_object_type_name<HttpRequest>());
+        request_table.set("__native_object_pointer", static_cast<lua::Pointer>(const_cast<HttpRequest*>(&request)));
+        response_table.set("__native_object_type", native_object_type_name<LuaHttpResponseSerializerBridge>());
+        response_table.set("__native_object_pointer", static_cast<lua::Pointer>(&response_bridge));
+
+        request_table = server.virtual_machine["setmetatable"].call
+        (
+            request_table,
+            server.virtual_machine["__http_request_metatable"]
+        );
+
+        response_table = server.virtual_machine["setmetatable"].call
+        (
+            response_table,
+            server.virtual_machine["__http_response_metatable"]
+        );
+
+        endpoint.resume(request_table, response_table);
+
+        if (endpoint.isError())
         {
-            HttpResponse::Serializer        response_serializer(response);
-            LuaHttpResponseSerializerBridge response_bridge    (response_serializer);
+            send_plain_text_response(response, 500, "Internal Server Error");
 
-            auto  request_table = server.virtual_machine.newTable ();
-            auto response_table = server.virtual_machine.newTable ();
-
-             request_table.set ("__native_object_type",    native_object_type_name<HttpRequest> ());
-             request_table.set ("__native_object_pointer", static_cast<lua::Pointer>(const_cast<HttpRequest *>(&request)));
-            response_table.set ("__native_object_type",    native_object_type_name<LuaHttpResponseSerializerBridge> ());
-            response_table.set ("__native_object_pointer", static_cast<lua::Pointer>(&response_bridge));
-
-            request_table = server.virtual_machine["setmetatable"].call
-            (
-                request_table,
-                server.virtual_machine["__http_request_metatable"]
-            );
-
-            response_table = server.virtual_machine["setmetatable"].call
-            (
-                response_table,
-                server.virtual_machine["__http_response_metatable"]
-            );
-
-            endpoint.resume(request_table, response_table);
-
-            return endpoint.isDead();
-        }
-       else
-       {
-           send_plain_text_response(response, 500, "Internal Server Error");
-
-           return true;
+            return true;
         }
 
-       
+        return endpoint.isDead();
     }
 
     LuaServerApplication::LuaServerApplication(const std::string_view & script_path_string)
@@ -168,7 +164,7 @@ namespace argb
 
                 if (path.starts_with (key) && (path.length () == key.length () || path[key.length ()] == '/' || key.back () == '/'))
                 {
-                    return { std::make_unique<RequestHandler> (*this, virtual_machine, iterator->second) };
+                    return { std::make_unique<RequestHandler> (*this, iterator->second) };
                 }
             }
         }
