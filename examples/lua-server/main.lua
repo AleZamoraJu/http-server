@@ -22,14 +22,14 @@ server.route ("GET", "/hello", function (request, response)
     local message = "Hello from the bridge! Method: " .. request:get_method()
                  .. " | Agent: " .. (request:get_header("User-Agent") or "unknown")
 
+    coroutine.yield()
+
     response:status     (200)
     response:header     ("Content-Type",   "text/plain; charset=utf-8")
     response:header     ("Content-Length",  #message)
     response:header     ("Connection",     "close")
     response:end_header ()
     response:body       (message)
-    
-    coroutine.yield() -- CORRECCIÓN: Notifica a C++ que la respuesta está lista ???
 end)
 
 -- ---------------------------------------------------------------------------
@@ -38,6 +38,7 @@ end)
 server.route ("GET", "/users", function (request, response)
     local body = ""
     local row  = database.query("SELECT id, name, email, score FROM users ORDER BY id")
+
     coroutine.yield()
 
 
@@ -48,7 +49,9 @@ server.route ("GET", "/users", function (request, response)
         local email = row:get_string  (3)
         local score = row:get_real    (4)
         body = body .. id .. " | " .. name .. " | " .. email .. " | " .. score .. "\n"
+
         coroutine.yield()
+
     end
 
     response:status     (200)
@@ -57,8 +60,6 @@ server.route ("GET", "/users", function (request, response)
     response:header     ("Connection",     "close")
     response:end_header ()
     response:body       (body)
-    
-    coroutine.yield() -- CORRECCIÓN: Rendimos el control al terminar de armar la respuesta
 end)
 
 -- ---------------------------------------------------------------------------
@@ -70,13 +71,15 @@ server.route ("GET", "/users/", function (request, response)
 
     if id == nil then
         local message = "Bad request: expected /users/<integer id>"
+        
+        coroutine.yield() -- CORRECCIÓN: Faltaba ceder tras un error 400
+
         response:status     (400)
         response:header     ("Content-Type",   "text/plain; charset=utf-8")
         response:header     ("Content-Length",  #message)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (message)
-        coroutine.yield() -- CORRECCIÓN: Faltaba ceder tras un error 400
         return
     end
 
@@ -86,6 +89,8 @@ server.route ("GET", "/users/", function (request, response)
         local body = "name="   .. row:get_string (1)
                   .. " email=" .. row:get_string (2)
                   .. " score=" .. row:get_real   (3)
+                  
+        coroutine.yield() -- CORRECCIÓN: Asegura el envío del 200 OK
 
         response:status     (200)
         response:header     ("Content-Type",   "text/plain; charset=utf-8")
@@ -93,16 +98,17 @@ server.route ("GET", "/users/", function (request, response)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (body)
-        coroutine.yield() -- CORRECCIÓN: Asegura el envío del 200 OK
     else
         local message = "User " .. id .. " not found"
+        
+        coroutine.yield() -- CORRECCIÓN: Asegura el envío del 404 Not Found
+
         response:status     (404)
         response:header     ("Content-Type",   "text/plain; charset=utf-8")
         response:header     ("Content-Length",  #message)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (message)
-        coroutine.yield() -- CORRECCIÓN: Asegura el envío del 404 Not Found
     end
 end)
 
@@ -117,13 +123,15 @@ server.route ("POST", "/users", function (request, response)
 
     if name == nil or email == nil or score == nil then
         local message = "Bad request: expected body 'name=...&email=...&score=...'"
+
+        coroutine.yield() -- CORRECCIÓN: Faltaba ceder tras error de parseo
+
         response:status     (400)
         response:header     ("Content-Type",   "text/plain; charset=utf-8")
         response:header     ("Content-Length",  #message)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (message)
-        coroutine.yield() -- CORRECCIÓN: Faltaba ceder tras error de parseo
         return
     end
 
@@ -138,6 +146,8 @@ server.route ("POST", "/users", function (request, response)
         message = "Insert succeeded but could not retrieve new id"
     end
 
+    coroutine.yield() -- CORRECCIÓN: Falta ceder al final del proceso exitoso
+
     response:status     (201)
     response:header     ("Content-Type",   "text/plain; charset=utf-8")
     response:header     ("Content-Length",  #message)
@@ -145,7 +155,6 @@ server.route ("POST", "/users", function (request, response)
     response:end_header ()
     response:body       (message)
     
-    coroutine.yield() -- CORRECCIÓN: Faltaba ceder al final del proceso exitoso
 end)
 
 -- ---------------------------------------------------------------------------
@@ -157,19 +166,23 @@ server.route ("DELETE", "/users/", function (request, response)
 
     if id == nil then
         local message = "Bad request: expected /users/<integer id>"
+        
+        coroutine.yield() -- CORRECCIÓN: Faltaba ceder en este return prematuro
+
         response:status     (400)
         response:header     ("Content-Type",   "text/plain; charset=utf-8")
         response:header     ("Content-Length",  #message)
         response:header     ("Connection",     "close")
         response:end_header ()
         response:body       (message)
-        coroutine.yield() -- CORRECCIÓN: Faltaba ceder en este return prematuro
         return
     end
 
     database.execute("DELETE FROM users WHERE id = ?", {id})
 
     local message = "Deleted user " .. id
+    
+    coroutine.yield() -- CORRECCIÓN: Faltaba ceder tras borrar con éxito
 
     response:status     (200)
     response:header     ("Content-Type",   "text/plain; charset=utf-8")
@@ -177,6 +190,4 @@ server.route ("DELETE", "/users/", function (request, response)
     response:header     ("Connection",     "close")
     response:end_header ()
     response:body       (message)
-    
-    coroutine.yield() -- CORRECCIÓN: Faltaba ceder tras borrar con éxito
 end)

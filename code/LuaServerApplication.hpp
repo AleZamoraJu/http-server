@@ -48,6 +48,8 @@ namespace argb
             Endpoint               endpoint;
 
         public:
+                
+            bool isLuaHandler() const override { return true; }
 
             /** Constructs a RequestHandler for the specified LuaServerApplication and endpoint. It initializes the
               * handler with references to the server and the Lua endpoint that it will invoke when processing requests.

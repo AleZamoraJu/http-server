@@ -182,6 +182,7 @@ namespace lua {
             stack::push(_thread, std::forward<Args>(args)...);
 
             int nresults = 0;
+
             int result   = lua_resume(_thread, _mainState, static_cast<int>(sizeof...(Args)), &nresults);
 
             switch (result)

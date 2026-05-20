@@ -44,6 +44,8 @@ namespace argb
 
         public:
 
+            bool isStaticHandler() const override { return true; }
+
             /** Constructs a RequestHandler for the specified file path. It checks if the file exists and is a
               * regular file, opening it for reading if it is valid. The initial state of the handler is determined based
               * on the outcome of these checks, allowing it to generate appropriate responses when processing the request.
